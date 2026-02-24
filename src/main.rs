@@ -2,14 +2,13 @@ mod agent;
 mod brain;
 mod memory;
 mod tools;
-mod config;
 
 use anyhow::Result;
-use std::sync::Arc;
-use femtoclaw::agent::FemtoClaw;
-use femtoclaw::brain::{Brain, LocalBrain, RemoteBrain};
-use femtoclaw::memory::ConversationMemory;
-use femtoclaw::tools::{Claw, FetchClaw, ShellClaw};
+use std::sync::{Arc, Mutex};
+use crate::agent::FemtoClaw;
+use crate::brain::{Brain, LocalBrain, RemoteBrain};
+use crate::memory::ConversationMemory;
+use crate::tools::{Claw, FetchClaw, ShellClaw};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,7 +29,7 @@ async fn main() -> Result<()> {
     };
 
     // 2. Initialize Memory (Keep last 20 messages)
-    let memory = Arc::new(ConversationMemory::new(20));
+    let memory = Arc::new(Mutex::new(ConversationMemory::new(20)));
 
     // 3. Initialize Claws
     let tools: Vec<Arc<dyn Claw>> = vec![

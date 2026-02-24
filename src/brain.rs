@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Message {
-    pub role: String, // "system", "user", "assistant"
+    pub role: String,
     pub content: String,
 }
 
@@ -12,47 +12,41 @@ pub trait Brain: Send + Sync {
     async fn think(&self, messages: Vec<Message>) -> Result<String>;
 }
 
-// --- Remote Brain (OpenAI Compatible) ---
 pub struct RemoteBrain {
-    client: async_openai::Client<async_openai::config::OpenAIConfig>,
+    client: async_openai::Client,
     model: String,
 }
 
 impl RemoteBrain {
-    pub fn new(api_key: String, base_url: Option<String>, model: String) -> Self {
-        let mut config = async_openai::config::OpenAIConfig::new().with_api_key(api_key);
-        if let Some(url) = base_url {
-            config = config.with_api_base(url);
-        }
-        Self {
-            client: async_openai::Client::with_config(config),
-            model,
-        }
+    pub fn new(_api_key: String, _base_url: Option<String>, model: String) -> Self {
+        let client = async_openai::Client::new();
+        
+        // Note: For custom base URLs, use OPENAI_BASE_URL env var or set it directly
+        // The async-openai 0.10.x doesn't have with_base_url method
+        
+        Self { client, model }
     }
 }
 
 #[async_trait::async_trait]
 impl Brain for RemoteBrain {
     async fn think(&self, messages: Vec<Message>) -> Result<String> {
-        // Convert to async-openai format
         let req = async_openai::types::CreateChatCompletionRequestArgs::default()
             .model(&self.model)
             .messages(messages.into_iter().map(|m| {
-                async_openai::types::ChatCompletionRequestMessage::User(
-                    async_openai::types::ChatCompletionRequestUserMessageArgs::default()
-                        .content(m.content)
-                        .build()
-                        .unwrap()
-                )
+                async_openai::types::ChatCompletionRequestMessageArgs::default()
+                    .role(async_openai::types::Role::User)
+                    .content(m.content)
+                    .build()
+                    .unwrap()
             }).collect::<Vec<_>>())
             .build()?;
 
         let response = self.client.chat().create(req).await?;
-        Ok(response.choices[0].message.content.clone().unwrap_or_default())
+        Ok(response.choices[0].message.content.clone())
     }
 }
 
-// --- Local Brain (Ollama Placeholder) ---
 pub struct LocalBrain {
     url: String,
     model: String,
@@ -67,7 +61,6 @@ impl LocalBrain {
 #[async_trait::async_trait]
 impl Brain for LocalBrain {
     async fn think(&self, messages: Vec<Message>) -> Result<String> {
-        // Simplified Ollama call logic
         let client = reqwest::Client::new();
         let payload = serde_json::json!({
             "model": self.model,

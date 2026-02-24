@@ -1,5 +1,4 @@
 use crate::brain::Message;
-use anyhow::Result;
 
 pub trait Memory: Send + Sync {
     fn add(&mut self, role: &str, content: &str);

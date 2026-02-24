@@ -2,25 +2,25 @@ use crate::brain::{Brain, Message};
 use crate::memory::Memory;
 use crate::tools::Claw;
 use anyhow::Result;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub struct FemtoClaw {
     brain: Arc<dyn Brain>,
-    memory: Arc<dyn Memory>,
+    memory: Arc<Mutex<dyn Memory>>,
     tools: Vec<Arc<dyn Claw>>,
 }
 
 impl FemtoClaw {
-    pub fn new(brain: Arc<dyn Brain>, memory: Arc<dyn Memory>, tools: Vec<Arc<dyn Claw>>) -> Self {
+    pub fn new(brain: Arc<dyn Brain>, memory: Arc<Mutex<dyn Memory>>, tools: Vec<Arc<dyn Claw>>) -> Self {
         Self { brain, memory, tools }
     }
 
     pub async fn run(&self, prompt: &str) -> Result<String> {
         // 1. Store User Input
-        self.memory.add("user", prompt);
+        self.memory.lock().unwrap().add("user", prompt);
 
         // 2. Construct System Prompt with Tool Definitions
-        let mut messages = self.memory.get_history();
+        let messages = self.memory.lock().unwrap().get_history();
         
         // Inject tool capabilities into context (Simple ReAct style)
         let tool_desc = self.tools.iter()
@@ -32,20 +32,20 @@ impl FemtoClaw {
         
         // Prepend system prompt temporarily for this turn
         let mut full_context = vec![Message { role: "system".into(), content: system_prompt }];
-        full_context.append(&mut messages);
+        full_context.extend(messages);
 
         // 3. Think
         let response = self.brain.think(full_context).await?;
 
         // 4. Store Assistant Output
-        self.memory.add("assistant", &response);
+        self.memory.lock().unwrap().add("assistant", &response);
 
         // 5. Check for Tool Usage (Simple keyword matching for skeleton)
         // In production: Use structured JSON output from LLM to trigger tools
         for tool in &self.tools {
             if response.contains(tool.name()) {
                 let result = tool.execute(prompt)?;
-                self.memory.add("system", &format!("Tool {} result: {}", tool.name(), result));
+                self.memory.lock().unwrap().add("system", &format!("Tool {} result: {}", tool.name(), result));
                 return Ok(format!("Thought: {}\nAction: {} -> {}", response, tool.name(), result));
             }
         }
