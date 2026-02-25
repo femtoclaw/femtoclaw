@@ -13,19 +13,27 @@ use serde::Deserialize;
 use serde_json::Value;
 use tokio::process::Command;
 
-use crate::tools::Claw;
+use crate::tools::Tool;
 
 #[derive(Clone)]
-pub struct ShellClaw {
+pub struct ShellTool {
     allowlist: Vec<&'static str>,
     max_args: usize,
     max_arg_len: usize,
 }
 
-impl ShellClaw {
-    pub fn new_default() -> Self {
+impl ShellTool {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Default for ShellTool {
+    fn default() -> Self {
         Self {
-            allowlist: vec!["ls", "cat", "pwd", "whoami", "git"],
+            allowlist: vec![
+                "ls", "cat", "pwd", "whoami", "git", "echo", "head", "tail", "wc", "grep",
+            ],
             max_args: 16,
             max_arg_len: 256,
         }
@@ -40,13 +48,17 @@ struct ShellArgs {
 }
 
 #[async_trait]
-impl Claw for ShellClaw {
-    fn name(&self) -> &'static str { "shell" }
-    fn description(&self) -> &'static str { "Allowlisted argv process execution (no shell)." }
+impl Tool for ShellTool {
+    fn name(&self) -> &'static str {
+        "shell"
+    }
+    fn description(&self) -> &'static str {
+        "Allowlisted argv process execution (no shell)."
+    }
 
     async fn execute(&self, args: Value) -> anyhow::Result<String> {
-        let parsed: ShellArgs = serde_json::from_value(args)
-            .map_err(|e| anyhow::anyhow!("shell args invalid: {e}"))?;
+        let parsed: ShellArgs =
+            serde_json::from_value(args).map_err(|e| anyhow::anyhow!("shell args invalid: {e}"))?;
 
         if !self.allowlist.iter().any(|&b| b == parsed.bin) {
             return Err(anyhow::anyhow!("shell bin not allowed"));
