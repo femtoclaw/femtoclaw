@@ -21,12 +21,21 @@ impl Agent {
 
         // Capability-gated tools: enable explicitly here.
         tools_map.insert("shell", Box::new(tools::shell::ShellClaw::new_default()));
-        tools_map.insert("web_get", Box::new(tools::web_get::WebGetClaw::new(64 * 1024, 20)?));
+        tools_map.insert(
+            "web_get",
+            Box::new(tools::web_get::WebGetClaw::new(64 * 1024, 20)?),
+        );
 
         let mut mem = ShortTermMemory::new(24);
-        mem.push(Message::system("FemtoClaw — Industrial Agent Runtime. Strict JSON tool calling."));
+        mem.push(Message::system(
+            "FemtoClaw — Industrial Agent Runtime. Strict JSON tool calling.",
+        ));
 
-        Ok(Self { brain, mem, tools: tools_map })
+        Ok(Self {
+            brain,
+            mem,
+            tools: tools_map,
+        })
     }
 
     pub async fn step(&mut self, user_text: &str) -> anyhow::Result<String> {
@@ -42,12 +51,15 @@ impl Agent {
             }
             AgentOutput::ToolCall { tool_call } => {
                 let tool_name = tool_call.tool;
-                let tool = self.tools.get(tool_name.as_str())
+                let tool = self
+                    .tools
+                    .get(tool_name.as_str())
                     .ok_or_else(|| anyhow::anyhow!("tool not enabled: {tool_name}"))?;
                 let result = tool.execute(tool_call.args).await?;
 
                 // Store tool result as tool message and ask brain for final message
-                self.mem.push(Message::tool(format!("tool:{tool_name}\n{result}")));
+                self.mem
+                    .push(Message::tool(format!("tool:{tool_name}\n{result}")));
                 let raw2 = self.brain.think(self.mem.history()).await?;
                 let out2 = AgentOutput::parse_strict(&raw2)?;
                 match out2 {
@@ -55,9 +67,9 @@ impl Agent {
                         self.mem.push(Message::assistant(message.content.clone()));
                         Ok(message.content)
                     }
-                    AgentOutput::ToolCall { .. } => {
-                        Err(anyhow::anyhow!("tool chaining is disabled in Industrial Runtime (expected message)"))
-                    }
+                    AgentOutput::ToolCall { .. } => Err(anyhow::anyhow!(
+                        "tool chaining is disabled in Industrial Runtime (expected message)"
+                    )),
                 }
             }
         }
@@ -70,7 +82,7 @@ pub async fn run_repl() -> anyhow::Result<()> {
     let mut lines = stdin.lines();
     let mut stdout = io::stdout();
 
-    stdout.write_all(b"FemtoClaw — Industrial Agent Runtime — type a prompt and press Enter.\n").await?;
+    stdout.write_all(b"FemtoClaw \xE2\x80\x94 Industrial Agent Runtime \xE2\x80\x94 type a prompt and press Enter.\n").await?;
     stdout.write_all(b"> ").await?;
     stdout.flush().await?;
 

@@ -23,21 +23,29 @@ impl OpenAIBrain {
     pub fn from_env() -> anyhow::Result<Self> {
         let base_url = std::env::var("FEMTO_OPENAI_BASE_URL")
             .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
-        let api_key = std::env::var("FEMTO_OPENAI_API_KEY")
-            .map_err(|_| anyhow::anyhow!("FEMTO_OPENAI_API_KEY is required when FEMTO_BRAIN=openai"))?;
-        let model = std::env::var("FEMTO_OPENAI_MODEL")
-            .unwrap_or_else(|_| "gpt-4.1-mini".to_string());
+        let api_key = std::env::var("FEMTO_OPENAI_API_KEY").map_err(|_| {
+            anyhow::anyhow!("FEMTO_OPENAI_API_KEY is required when FEMTO_BRAIN=openai")
+        })?;
+        let model =
+            std::env::var("FEMTO_OPENAI_MODEL").unwrap_or_else(|_| "gpt-4.1-mini".to_string());
 
         let mut headers = HeaderMap::new();
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {api_key}"))?);
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {api_key}"))?,
+        );
 
         let client = reqwest::Client::builder()
             .default_headers(headers)
             .timeout(std::time::Duration::from_secs(30))
             .build()?;
 
-        Ok(Self { client, base_url, model })
+        Ok(Self {
+            client,
+            base_url,
+            model,
+        })
     }
 }
 
@@ -45,17 +53,20 @@ impl OpenAIBrain {
 impl Brain for OpenAIBrain {
     async fn think(&self, messages: &[Message]) -> anyhow::Result<String> {
         let url = format!("{}/chat/completions", self.base_url.trim_end_matches('/'));
-        let msgs = messages.iter().map(|m| {
-            let role = match m.role {
-                crate::types::Role::System => "system",
-                crate::types::Role::User => "user",
-                crate::types::Role::Assistant => "assistant",
-                crate::types::Role::Tool => "tool",
-            };
-            json!({"role": role, "content": m.content})
-        }).collect::<Vec<_>>();
+        let msgs = messages
+            .iter()
+            .map(|m| {
+                let role = match m.role {
+                    crate::types::Role::System => "system",
+                    crate::types::Role::User => "user",
+                    crate::types::Role::Assistant => "assistant",
+                    crate::types::Role::Tool => "tool",
+                };
+                json!({"role": role, "content": m.content})
+            })
+            .collect::<Vec<_>>();
 
-        let system_guard = "You are FemtoClaw — Industrial Agent Runtime. Output STRICT JSON only, no markdown.             Output exactly one of: {"message":{"content":"..."}} OR {"tool_call":{"tool":"...","args":{...}}}.             Do not include extra keys.";
+        let system_guard = "You are FemtoClaw \u{2014} Industrial Agent Runtime. Output STRICT JSON only, no markdown.             Output exactly one of: {{\"message\":{{\"content\":\"...\"}}}} OR {{\"tool_call\":{{\"tool\":\"...\",\"args\":{{...}}}}}}.             Do not include extra keys.";
 
         let mut final_msgs = vec![json!({"role":"system","content":system_guard})];
         final_msgs.extend(msgs);
