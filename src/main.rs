@@ -1,48 +1,33 @@
-mod agent;
-mod brain;
-mod memory;
-mod tools;
+use clap::{Parser, Subcommand};
 
-use anyhow::Result;
-use std::sync::{Arc, Mutex};
-use crate::agent::FemtoClaw;
-use crate::brain::{Brain, LocalBrain, RemoteBrain};
-use crate::memory::ConversationMemory;
-use crate::tools::{Claw, FetchClaw, ShellClaw};
+#[derive(Parser, Debug)]
+#[command(name = "femtoclaw", version, about = "FemtoClaw — Industrial Agent Runtime")]
+struct Cli {
+    #[command(subcommand)]
+    cmd: Command,
+}
+
+#[derive(Subcommand, Debug)]
+enum Command {
+    /// Run an interactive REPL loop (stdin -> agent -> stdout).
+    Run,
+    /// Run a single prompt (useful for CI).
+    Once {
+        /// Prompt text
+        prompt: String,
+    },
+}
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    dotenv::dotenv().ok();
+async fn main() -> anyhow::Result<()> {
+    #[cfg(feature = "full")]
+    {
+        tracing_subscriber::fmt().with_ansi(true).init();
+    }
 
-    // 1. Initialize Brain (Switch based on ENV)
-    let brain: Arc<dyn Brain> = if std::env::var("USE_LOCAL").unwrap_or_default() == "true" {
-        Arc::new(LocalBrain::new(
-            std::env::var("OLLAMA_URL").unwrap_or_else(|_| "http://localhost:11434".to_string()),
-            std::env::var("MODEL").unwrap_or_else(|_| "llama3".to_string()),
-        ))
-    } else {
-        Arc::new(RemoteBrain::new(
-            std::env::var("OPENAI_API_KEY").expect("API_KEY required"),
-            std::env::var("OPENAI_BASE_URL").ok(),
-            std::env::var("MODEL").unwrap_or_else(|_| "gpt-3.5-turbo".to_string()),
-        ))
-    };
-
-    // 2. Initialize Memory (Keep last 20 messages)
-    let memory = Arc::new(Mutex::new(ConversationMemory::new(20)));
-
-    // 3. Initialize Claws
-    let tools: Vec<Arc<dyn Claw>> = vec![
-        Arc::new(FetchClaw),
-        Arc::new(ShellClaw),
-    ];
-
-    // 4. Spawn Agent
-    let agent = FemtoClaw::new(brain, memory, tools);
-
-    println!("🦅 FemtoClaw Ready.");
-    let response = agent.run("Fetch https://example.com").await?;
-    println!("📝 {}", response);
-
-    Ok(())
+    let cli = Cli::parse();
+    match cli.cmd {
+        Command::Run => femtoclaw::app::run_repl().await,
+        Command::Once { prompt } => femtoclaw::app::run_once(&prompt).await,
+    }
 }
