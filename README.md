@@ -1,9 +1,5 @@
 # FemtoClaw — Industrial Agent Runtime (Rust)
 
-FemtoClaw is its own class of product: a lightweight, Rust-based agent runtime built for enterprise and production environments where correctness, observability, and safety gates matter.
-
-# FemtoClaw — Industrial Agent Runtime (Rust)
-
 **FemtoClaw** is a lightweight, deterministic agent runtime designed for industrial/enterprise/production use.
 The **Industrial Runtime** prioritizes:
 - Small binaries (release profile optimized)
