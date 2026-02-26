@@ -1,6 +1,6 @@
 [package]
 name = "femtoclaw"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2021"
 license = "Apache-2.0"
 description = "FemtoClaw — Industrial Agent Runtime: a lightweight, production-grade Rust AI agent runtime."
