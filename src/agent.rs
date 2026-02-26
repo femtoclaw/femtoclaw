@@ -13,12 +13,17 @@ use crate::protocol::{ProtocolOutput, Validator};
 use crate::tools::ToolRegistry;
 use crate::types::Message;
 
+use femtoclaw_audit::{Event, Telemetry};
+use femtoclaw_policy::{Capability, CapabilityGate, Policy, PolicyEngine, Rule};
+
 pub struct Agent {
     brain: BrainKind,
     memory: Arc<RwLock<Box<dyn Memory>>>,
     tools: ToolRegistry,
     validator: Validator,
     config: Config,
+    gate: CapabilityGate,
+    telemetry: Telemetry,
 }
 
 impl Agent {
@@ -30,12 +35,28 @@ impl Agent {
         tools.register(crate::tools::shell::ShellTool::new());
         tools.register(crate::tools::web_get::WebGetTool::new()?);
 
+        let mut gate = CapabilityGate::new();
+        gate.register_capability(Capability::new("shell", "Execute shell commands"));
+        gate.register_capability(Capability::new("web.get", "Fetch URLs"));
+
+        let mut engine = PolicyEngine::new();
+        engine.add_policy(
+            Policy::new("default", "1.0")
+                .with_rule(Rule::allow("shell"))
+                .with_rule(Rule::allow("web.get")),
+        );
+
+        let gate = gate.with_engine(engine);
+        let telemetry = Telemetry::new();
+
         Ok(Self {
             brain,
             memory: Arc::new(RwLock::new(memory)),
             tools,
             validator: Validator::new(),
             config,
+            gate,
+            telemetry,
         })
     }
 
@@ -65,10 +86,18 @@ impl Agent {
                 Ok(content)
             }
             ProtocolOutput::ToolCall(tc) => {
-                let tool_name = tc.tool_call.tool;
-                let args = tc.tool_call.args;
+                let tool_name = tc.tool_call.tool.clone();
+                let args = tc.tool_call.args.clone();
+
+                let decision = self.gate.authorize(&tool_name, &args);
+                if !decision.is_allowed() {
+                    return Err(anyhow::anyhow!("Capability denied: {}", decision));
+                }
 
                 let result = self.tools.execute(&tool_name, args).await?;
+
+                let audit_event = Event::capability_execution_complete(&tool_name, &result);
+                self.telemetry.emit_and_log(audit_event).await;
 
                 let assistant_message = Message::assistant(&result);
                 let mut memory = self.memory.write().await;

@@ -21,7 +21,9 @@ impl BrainKind {
         match kind.as_str() {
             "echo" => Ok(Self::Echo(echo::EchoBrain::default())),
             "openai" => Ok(Self::OpenAI(openai::OpenAIBrain::from_env()?)),
-            other => Err(anyhow::anyhow!("unknown FEMTO_BRAIN='{other}' (use 'echo' or 'openai')")),
+            other => Err(anyhow::anyhow!(
+                "unknown FEMTO_BRAIN='{other}' (use 'echo' or 'openai')"
+            )),
         }
     }
 }
