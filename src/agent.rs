@@ -4,6 +4,7 @@
 //! and coordinates all execution according to the architecture specification.
 
 use std::sync::Arc;
+
 use tokio::sync::RwLock;
 
 use crate::brain::{Brain, BrainKind};
@@ -21,15 +22,14 @@ pub struct Agent {
     memory: Arc<RwLock<Box<dyn Memory>>>,
     tools: ToolRegistry,
     validator: Validator,
-    config: Config,
     gate: CapabilityGate,
     telemetry: Telemetry,
 }
 
 impl Agent {
     pub fn new(config: Config) -> anyhow::Result<Self> {
-        let brain = BrainKind::from_env()?;
-        let memory = Box::new(crate::memory::stm::Stm::new(1000));
+        let brain = BrainKind::from_name(&config.brain.backend)?;
+        let memory = Box::new(crate::memory::stm::Stm::new(config.max_memory));
 
         let mut tools = ToolRegistry::new();
         tools.register(crate::tools::shell::ShellTool::new());
@@ -54,7 +54,6 @@ impl Agent {
             memory: Arc::new(RwLock::new(memory)),
             tools,
             validator: Validator::new(),
-            config,
             gate,
             telemetry,
         })

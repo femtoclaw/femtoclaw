@@ -40,9 +40,8 @@ pub enum BrainKind {
 }
 
 impl BrainKind {
-    pub fn from_env() -> anyhow::Result<Self> {
-        let kind = std::env::var("FEMTO_BRAIN").unwrap_or_else(|_| "echo".to_string());
-        match kind.as_str() {
+    pub fn from_name(kind: &str) -> anyhow::Result<Self> {
+        match kind {
             "echo" => Ok(Self::Echo(echo::EchoBrain::default())),
             "openai" => Ok(Self::OpenAI(openai::OpenAIBrain::from_env()?)),
             "ollama" => Ok(Self::Ollama(ollama::OllamaBrain::from_env()?)),
@@ -59,6 +58,11 @@ impl BrainKind {
             "lmstudio" => Ok(Self::LmStudio(lmstudio::LmStudioBrain::from_env()?)),
             other => Err(anyhow::anyhow!("unknown FEMTO_BRAIN='{other}'")),
         }
+    }
+
+    pub fn from_env() -> anyhow::Result<Self> {
+        let kind = std::env::var("FEMTO_BRAIN").unwrap_or_else(|_| "echo".to_string());
+        Self::from_name(&kind)
     }
 }
 
