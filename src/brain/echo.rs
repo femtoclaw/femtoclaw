@@ -28,11 +28,11 @@ impl Brain for EchoBrain {
 fn escape_json_string(s: &str) -> String {
     s.chars()
         .flat_map(|c| match c {
-            '"' => "\"".chars().collect::<Vec<_>>(),
-            '\\' => "\\".chars().collect(),
-            '\n' => "\n".chars().collect(),
-            '\r' => "\r".chars().collect(),
-            '\t' => "\t".chars().collect(),
+            '"' => "\\\"".chars().collect::<Vec<_>>(),
+            '\\' => "\\\\".chars().collect(),
+            '\n' => "\\n".chars().collect(),
+            '\r' => "\\r".chars().collect(),
+            '\t' => "\\t".chars().collect(),
             _ => vec![c],
         })
         .collect()

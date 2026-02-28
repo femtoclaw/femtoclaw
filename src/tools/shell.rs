@@ -32,7 +32,20 @@ impl Default for ShellTool {
     fn default() -> Self {
         Self {
             allowlist: vec![
-                "ls", "cat", "pwd", "whoami", "git", "echo", "head", "tail", "wc", "grep",
+                "ls",
+                "cat",
+                "pwd",
+                "whoami",
+                "git",
+                "echo",
+                "head",
+                "tail",
+                "wc",
+                "grep",
+                "powershell",
+                "powershell.exe",
+                "notepad",
+                "notepad.exe",
             ],
             max_args: 16,
             max_arg_len: 256,
@@ -72,10 +85,7 @@ impl Tool for ShellTool {
             }
         }
 
-        let out = Command::new(&parsed.bin)
-            .args(&parsed.argv)
-            .output()
-            .await?;
+        let out = Command::new(&parsed.bin).args(&parsed.argv).output().await?;
 
         let mut s = String::new();
         s.push_str(&String::from_utf8_lossy(&out.stdout));
@@ -85,7 +95,7 @@ impl Tool for ShellTool {
         const MAX_OUT: usize = 32_768;
         if s.len() > MAX_OUT {
             s.truncate(MAX_OUT);
-            s.push_str("\n…(truncated)…");
+            s.push_str("\n...(truncated)...");
         }
         Ok(s)
     }
