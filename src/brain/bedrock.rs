@@ -4,7 +4,6 @@
 use async_trait::async_trait;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use serde_json::json;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::{brain::Brain, types::Message};
 

@@ -11,11 +11,43 @@ use crate::brain::{Brain, BrainKind};
 use crate::config::Config;
 use crate::memory::Memory;
 use crate::protocol::{ProtocolOutput, Validator};
-use crate::tools::ToolRegistry;
+use crate::tools::{Tool, ToolRegistry};
 use crate::types::Message;
 
 use femtoclaw_audit::{Event, Telemetry};
 use femtoclaw_policy::{Capability, CapabilityGate, Policy, PolicyEngine, Rule};
+use async_trait::async_trait;
+use serde_json::Value;
+
+// Import claws from femtoclaw-claws
+use femtoclaw_claws::core::Claw;
+use femtoclaw_claws::claws::fs::FsClaw;
+use femtoclaw_claws::claws::net::NetClaw;
+use femtoclaw_claws::claws::process::ProcessClaw;
+
+/// Adapter that converts a Claw (from femtoclaw-claws) into a Tool.
+struct ClawTool<C> {
+    inner: C,
+}
+
+#[async_trait]
+impl<C> Tool for ClawTool<C>
+where
+    C: Claw + Send + Sync + 'static,
+{
+    fn name(&self) -> &'static str {
+        self.inner.name()
+    }
+
+    fn description(&self) -> &'static str {
+        self.inner.description()
+    }
+
+    async fn execute(&self, args: Value) -> anyhow::Result<String> {
+        let result = self.inner.execute(args)?;
+        Ok(serde_json::to_string(&result)?)
+    }
+}
 
 pub struct Agent {
     brain: BrainKind,
@@ -34,16 +66,26 @@ impl Agent {
         let mut tools = ToolRegistry::new();
         tools.register(crate::tools::shell::ShellTool::new());
         tools.register(crate::tools::web_get::WebGetTool::new()?);
+        // Register Claw-based tools: fs, net, process
+        tools.register(ClawTool { inner: FsClaw });
+        tools.register(ClawTool { inner: NetClaw });
+        tools.register(ClawTool { inner: ProcessClaw });
 
         let mut gate = CapabilityGate::new();
         gate.register_capability(Capability::new("shell", "Execute shell commands"));
         gate.register_capability(Capability::new("web.get", "Fetch URLs"));
+        gate.register_capability(Capability::new("fs", "Filesystem read operations"));
+        gate.register_capability(Capability::new("net", "Network operations"));
+        gate.register_capability(Capability::new("process", "Process execution and inspection"));
 
         let mut engine = PolicyEngine::new();
         engine.add_policy(
             Policy::new("default", "1.0")
                 .with_rule(Rule::allow("shell"))
-                .with_rule(Rule::allow("web.get")),
+                .with_rule(Rule::allow("web.get"))
+                .with_rule(Rule::allow("fs"))
+                .with_rule(Rule::allow("net"))
+                .with_rule(Rule::allow("process")),
         );
 
         let gate = gate.with_engine(engine);
@@ -115,5 +157,43 @@ impl Agent {
     pub async fn history(&self) -> Vec<Message> {
         let memory = self.memory.read().await;
         memory.history().to_vec()
+    }
+
+    /// Directly execute a tool by name with arguments, bypassing the brain.
+    /// Authorization and audit are still enforced.
+    pub async fn execute_tool(&self, tool: &str, args: serde_json::Value) -> anyhow::Result<String> {
+        let decision = self.gate.authorize(tool, &args);
+        if !decision.is_allowed() {
+            return Err(anyhow::anyhow!("Capability denied: {}", decision));
+        }
+
+        let result = self.tools.execute(tool, args).await?;
+
+        let audit_event = Event::capability_execution_complete(tool, &result);
+        self.telemetry.emit_and_log(audit_event).await;
+
+        Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[tokio::test]
+    async fn test_execute_tool_unknown_denied() {
+        let agent = Agent::new(Config::default()).expect("agent creation failed");
+        let result = agent.execute_tool("unknown_tool", json!({})).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_tool_shell_allowed() {
+        let agent = Agent::new(Config::default()).expect("agent creation failed");
+        let result = agent.execute_tool("shell", json!({"bin": "echo", "argv": ["hello"]})).await;
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(output.contains("hello"));
     }
 }

@@ -1,7 +1,7 @@
 //! Google Gemini brain.
 
 use async_trait::async_trait;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
+use reqwest::header::{CONTENT_TYPE};
 use serde_json::json;
 
 use crate::{brain::Brain, types::Message};

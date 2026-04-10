@@ -291,6 +291,7 @@ dependencies = [
  "async-trait",
  "clap",
  "femtoclaw-audit",
+ "femtoclaw-claws",
  "femtoclaw-policy",
  "femtoclaw-protocol",
  "femtoclaw-storage",
@@ -316,6 +317,16 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "femtoclaw-claws"
+version = "1.0.3"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

@@ -9,6 +9,14 @@ The **Industrial Runtime** prioritizes:
 
 ## Quickstart
 
+### 1. One-liner (macOS/Linux)
+
+```bash
+curl -fsSL https://femtoclaw.org/install.sh | sh
+```
+
+### 2. From Source
+
 ```bash
 cargo build --release
 ./target/release/femtoclaw run
