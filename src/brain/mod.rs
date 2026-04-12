@@ -11,6 +11,7 @@ pub mod gemini;
 pub mod grok;
 pub mod lmstudio;
 pub mod mistral;
+pub mod mock;
 pub mod ollama;
 pub mod openai;
 pub mod openrouter;
@@ -37,12 +38,14 @@ pub enum BrainKind {
     Zen(zen::ZenBrain),
     OpenRouter(openrouter::OpenRouterBrain),
     LmStudio(lmstudio::LmStudioBrain),
+    Mock(mock::MockBrain),
 }
 
 impl BrainKind {
     pub fn from_name(kind: &str) -> anyhow::Result<Self> {
         match kind {
             "echo" => Ok(Self::Echo(echo::EchoBrain::default())),
+            "mock" => Ok(Self::Mock(mock::MockBrain::default())),
             "openai" => Ok(Self::OpenAI(openai::OpenAIBrain::from_env()?)),
             "ollama" => Ok(Self::Ollama(ollama::OllamaBrain::from_env()?)),
             "anthropic" => Ok(Self::Anthropic(anthropic::AnthropicBrain::from_env()?)),
@@ -84,6 +87,7 @@ impl Brain for BrainKind {
             BrainKind::Zen(b) => b.think(messages).await,
             BrainKind::OpenRouter(b) => b.think(messages).await,
             BrainKind::LmStudio(b) => b.think(messages).await,
+            BrainKind::Mock(b) => b.think(messages).await,
         }
     }
 }

@@ -56,12 +56,14 @@ pub struct Agent {
     validator: Validator,
     gate: CapabilityGate,
     telemetry: Telemetry,
+    max_iterations: usize,
 }
 
 impl Agent {
     pub fn new(config: Config) -> anyhow::Result<Self> {
         let brain = BrainKind::from_name(&config.brain.backend)?;
         let memory = Box::new(crate::memory::stm::Stm::new(config.max_memory));
+        let max_iterations = config.max_iterations;
 
         let mut tools = ToolRegistry::new();
         tools.register(crate::tools::shell::ShellTool::new());
@@ -98,7 +100,13 @@ impl Agent {
             validator: Validator::new(),
             gate,
             telemetry,
+            max_iterations,
         })
+    }
+
+    pub fn with_brain(mut self, brain: BrainKind) -> Self {
+        self.brain = brain;
+        self
     }
 
     pub async fn run(&self, input: &str) -> anyhow::Result<String> {
@@ -109,44 +117,57 @@ impl Agent {
             memory.push(user_message.clone());
         }
 
-        let messages = {
-            let memory = self.memory.read().await;
-            memory.history().to_vec()
-        };
+        for _ in 0..self.max_iterations {
+            let messages = {
+                let memory = self.memory.read().await;
+                memory.history().to_vec()
+            };
 
-        let response = self.brain.think(&messages).await?;
+            let response = self.brain.think(&messages).await?;
 
-        let protocol_output = self.validator.validate_str(&response)?;
+            let protocol_output = self.validator.validate_str(&response)?;
 
-        match protocol_output {
-            ProtocolOutput::Message(msg) => {
-                let content = msg.message.content;
-                let assistant_message = Message::assistant(&content);
-                let mut memory = self.memory.write().await;
-                memory.push(assistant_message);
-                Ok(content)
-            }
-            ProtocolOutput::ToolCall(tc) => {
-                let tool_name = tc.tool_call.tool.clone();
-                let args = tc.tool_call.args.clone();
-
-                let decision = self.gate.authorize(&tool_name, &args);
-                if !decision.is_allowed() {
-                    return Err(anyhow::anyhow!("Capability denied: {}", decision));
+            match protocol_output {
+                ProtocolOutput::Message(msg) => {
+                    let content = msg.message.content;
+                    let assistant_message = Message::assistant(&content);
+                    let mut memory = self.memory.write().await;
+                    memory.push(assistant_message);
+                    return Ok(content);
                 }
+                ProtocolOutput::ToolCall(tc) => {
+                    let tool_name = tc.tool_call.tool.clone();
+                    let args = tc.tool_call.args.clone();
 
-                let result = self.tools.execute(&tool_name, args).await?;
+                    let decision = self.gate.authorize(&tool_name, &args);
+                    if !decision.is_allowed() {
+                        return Err(anyhow::anyhow!("Capability denied: {}", decision));
+                    }
 
-                let audit_event = Event::capability_execution_complete(&tool_name, &result);
-                self.telemetry.emit_and_log(audit_event).await;
+                    // Record the tool call in memory
+                    {
+                        let mut memory = self.memory.write().await;
+                        memory.push(Message::assistant(&response));
+                    }
 
-                let assistant_message = Message::assistant(&result);
-                let mut memory = self.memory.write().await;
-                memory.push(assistant_message);
+                    let result = self.tools.execute(&tool_name, args).await?;
 
-                Ok(result)
+                    let audit_event = Event::capability_execution_complete(&tool_name, &result);
+                    self.telemetry.emit_and_log(audit_event).await;
+
+                    // Record the tool result in memory
+                    {
+                        let mut memory = self.memory.write().await;
+                        memory.push(Message::tool(&result));
+                    }
+                }
             }
         }
+
+        Err(anyhow::anyhow!(
+            "Maximum iterations reached ({}) without a final response",
+            self.max_iterations
+        ))
     }
 
     pub async fn reset(&self) {
@@ -157,6 +178,12 @@ impl Agent {
     pub async fn history(&self) -> Vec<Message> {
         let memory = self.memory.read().await;
         memory.history().to_vec()
+    }
+
+    /// Synchronize agent memory with external state (Reference Tier).
+    pub async fn sync_memory(&self, messages: &[Message]) {
+        let mut memory = self.memory.write().await;
+        memory.sync(messages);
     }
 
     /// Directly execute a tool by name with arguments, bypassing the brain.

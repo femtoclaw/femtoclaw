@@ -4,6 +4,7 @@
 pub struct Config {
     pub brain: BrainConfig,
     pub max_memory: usize,
+    pub max_iterations: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -22,6 +23,7 @@ impl Default for Config {
                 api_key: std::env::var("FEMTO_OPENAI_API_KEY").ok(),
             },
             max_memory: 1000,
+            max_iterations: 10,
         }
     }
 }

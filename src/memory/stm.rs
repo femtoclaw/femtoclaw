@@ -31,6 +31,14 @@ impl crate::memory::Memory for Stm {
     fn clear(&mut self) {
         self.buf.clear();
     }
+
+    fn sync(&mut self, messages: &[Message]) {
+        self.buf = messages.to_vec();
+        if self.buf.len() > self.max_messages {
+            let overflow = self.buf.len() - self.max_messages;
+            self.buf.drain(0..overflow);
+        }
+    }
 }
 
 #[cfg(test)]

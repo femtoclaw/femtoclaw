@@ -11,6 +11,7 @@ async fn test_memory_eviction() {
             api_key: None,
         },
         max_memory: max,
+        max_iterations: 10,
     };
     let agent = Agent::new(config).expect("agent failed");
 
