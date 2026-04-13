@@ -1,60 +1,118 @@
-# 🦅 FemtoClaw — Industrial Agent Runtime
+# 🦅 FemtoClaw: The Industrial Agent Runtime
 
 [![Rust](https://img.shields.io/badge/rust-1.75%2B-blue.svg)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Tier](https://img.shields.io/badge/Tier-Enterprise-green.svg)]()
+[![Documentation](https://img.shields.io/badge/docs-normative-blue.svg)](https://femtoclaw.org/docs)
 
-**FemtoClaw** is a lightweight, deterministic agent runtime designed for industrial, enterprise, and high-stakes production use. It enforces a strict separation between inference (probabilistic intent) and execution (deterministic authority).
+**FemtoClaw** is a high-performance, deterministic AI agent runtime engineered for industrial automation, enterprise systems, and high-stakes production environments. 
+
+Unlike traditional agent frameworks that bundle inference and execution, FemtoClaw defines a new class of infrastructure: the **Execution Authority**. It treats AI models as probabilistic "Brains" while maintaining absolute, rule-based control over system interactions.
+
+---
+
+## 🏗 Architecture: Separation of Authority
+
+FemtoClaw operates on the principle that **Inference produces Intent, while the Runtime preserves Authority.**
+
+```text
+┌───────────────────────┐      ┌──────────────────────────────────┐
+│   Probabilistic       │      │      Deterministic Authority     │
+│      BRAIN            │      │             RUNTIME              │
+├───────────────────────┤      ├──────────────────────────────────┤
+│ Generate Intent       │      │ 1. Validate Protocol (Schema)    │
+│ (Tool Call / Message) │ ───> │ 2. Authorize (Policy Engine)     │
+│                       │      │ 3. Execute (Capability Claws)    │
+│                       │      │ 4. Record (Audit & WAL)          │
+└───────────────────────┘      └──────────────────────────────────┘
+           ^                                     │
+           └─────────────────────────────────────┘
+                 Autonomous Feedback Loop
+```
+
+### The 10-Phase Execution Lifecycle (FC-02)
+1.  **Input**: Receive user prompt or system trigger.
+2.  **Think**: Brain generates next action (Inference).
+3.  **Validate**: Strict JSON schema enforcement (FC-03).
+4.  **Authorize**: Policy Engine checks capability permissions (FC-05).
+5.  **Mediate**: Sanitize and prepare arguments for execution.
+6.  **Execute**: Deterministic execution within a "Claw" sandbox.
+7.  **Record**: Mutation appended to the Write-Ahead Log (FC-20).
+8.  **Update**: History and memory updated with execution results.
+9.  **Evaluate**: Check for task completion or autonomous continuation (Spec 18).
+10. **Respond**: Return final output to the user/caller.
+
+---
 
 ## 🚀 Key Features
 
-- **Autonomous Execution (Spec 18):** Iterative "Think-Execute-Repeat" loop with safety-bounded iteration limits.
-- **Persistent Storage & WAL (Spec 20):** Durable, crash-resilient memory backed by a high-performance Write-Ahead Log.
-- **Distributed Coordination (Spec 41):** Reference-tier support for cluster-wide state synchronization and peer discovery.
-- **Deny-by-Default Security:** Capability-gated tool execution with mandatory authorization and strict allowlists.
-- **Minimal TCB:** Small binary footprint (<5MB) and minimal dependencies for a reduced attack surface.
+- **🛡️ Deny-by-Default Security**: No capability (shell, net, fs) can execute without explicit policy authorization.
+- **🔄 Autonomous Execution (Spec 18)**: Built-in support for multi-step reasoning loops with safety-bounded iteration limits.
+- **💾 Durable State (Spec 20)**: Every state mutation is logged to a high-performance Write-Ahead Log (WAL), enabling perfect crash recovery.
+- **🌐 Distributed Clusters (Spec 41)**: Reference-tier synchronization for multi-node agent coordination.
+- **⚡ Industrial Performance**: Zero-overhead Rust core with <5ms dispatch latency and minimal binary footprint.
 
-## 🛠 Quickstart
+---
 
-### 1. One-liner Installation (macOS/Linux)
+## 🛠️ Quickstart
+
+### Installation
 ```bash
+# Automated install script (recommended)
 curl -fsSL https://femtoclaw.org/install.sh | sh
 ```
 
-### 2. Run Interactively
+### Interactive REPL
+Launch the autonomous agent loop:
 ```bash
 femtoclaw run
 ```
 
-### 3. Integration (Rust)
+### Embedding in Rust
 ```rust
 use femtoclaw::{Agent, Config};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // 1. Initialize with default industrial configuration
     let agent = Agent::new(Config::default())?;
-    let response = agent.run("Perform a multi-step audit of the filesystem.").await?;
-    println!("Final Response: {}", response);
+
+    // 2. Execute an autonomous goal
+    let result = agent.run("Audit /tmp for large files and list the top 3.").await?;
+
+    println!("Audit Complete: {}", result);
     Ok(())
 }
 ```
 
-## 🧠 Brain Backends
-FemtoClaw is model-agnostic. Configure your brain via environment variables:
-- `echo` (default): Safe, deterministic JSON responses for testing.
-- `openai`: OpenAI-compatible API (GPT-4o, etc.).
-- `anthropic`, `gemini`, `ollama`, `grok`, and more.
+---
 
-## 🏗 Industrial Security Posture
-- **No Markdown Execution:** Strictly enforces JSON-serialized tool calls to prevent parsing ambiguities.
-- **Argv-only Shell:** Process execution is limited to explicitly allowlisted binaries with no shell interpolation.
-- **Audit Trails:** Every decision, authorization, and execution is recorded in a tamper-evident audit log.
+## ⚙️ Configuration & Governance
 
-## 📦 Project Structure
-- `femtoclaw-protocol`: Strict JSON schema validation for agent messages.
-- `femtoclaw-storage`: High-performance persistence and WAL.
-- `femtoclaw-remote`: Distributed cluster support and API server.
-- `femtoclaw-policy`: Deterministic authorization engine.
+FemtoClaw is governed by standard environment variables and `Config` objects.
 
-## 📄 License
-Apache 2.0 — see [LICENSE](LICENSE).
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FEMTO_BRAIN` | Backend provider (echo, openai, ollama, etc.) | `echo` |
+| `FEMTO_MAX_ITERATIONS` | Maximum steps in an autonomous loop | `10` |
+| `FEMTO_WAL_PATH` | Path to the durable Write-Ahead Log | `~/.femtoclaw/log.wal` |
+| `FEMTO_MEMORY_LIMIT` | Maximum messages preserved in context | `1000` |
+
+---
+
+## 📦 Workspace Ecosystem
+
+FemtoClaw is a modular ecosystem of specialized crates:
+
+- **[femtoclaw-protocol](./femtoclaw-protocol)**: The normative message schema.
+- **[femtoclaw-policy](./femtoclaw-policy)**: The rule-based authorization engine.
+- **[femtoclaw-storage](./femtoclaw-storage)**: WAL and persistence backends.
+- **[femtoclaw-claws](./femtoclaw-claws)**: Standard capability set (Shell, Net, FS).
+- **[femtoclaw-remote](./femtoclaw-remote)**: API server and distributed sync.
+
+---
+
+## 📄 License & Standards
+FemtoClaw is open-source under the **Apache License 2.0**. It conforms to the [FemtoClaw Engineering Specification Suite](./femtoclaw-spec).
+
+Copyright © 2026 FemtoClaw Project.
