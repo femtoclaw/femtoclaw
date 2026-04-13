@@ -1,71 +1,60 @@
-# FemtoClaw — Industrial Agent Runtime (Rust)
+# 🦅 FemtoClaw — Industrial Agent Runtime
 
-**FemtoClaw** is a lightweight, deterministic agent runtime designed for industrial/enterprise/production use.
-The **Industrial Runtime** prioritizes:
-- Small binaries (release profile optimized)
-- Fast startup
-- Strict JSON tool calling (no markdown)
-- Capability-gated tools with allowlists
+[![Rust](https://img.shields.io/badge/rust-1.75%2B-blue.svg)](https://www.rust-lang.org)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![Tier](https://img.shields.io/badge/Tier-Enterprise-green.svg)]()
 
-## Quickstart
+**FemtoClaw** is a lightweight, deterministic agent runtime designed for industrial, enterprise, and high-stakes production use. It enforces a strict separation between inference (probabilistic intent) and execution (deterministic authority).
 
-### 1. One-liner (macOS/Linux)
+## 🚀 Key Features
 
+- **Autonomous Execution (Spec 18):** Iterative "Think-Execute-Repeat" loop with safety-bounded iteration limits.
+- **Persistent Storage & WAL (Spec 20):** Durable, crash-resilient memory backed by a high-performance Write-Ahead Log.
+- **Distributed Coordination (Spec 41):** Reference-tier support for cluster-wide state synchronization and peer discovery.
+- **Deny-by-Default Security:** Capability-gated tool execution with mandatory authorization and strict allowlists.
+- **Minimal TCB:** Small binary footprint (<5MB) and minimal dependencies for a reduced attack surface.
+
+## 🛠 Quickstart
+
+### 1. One-liner Installation (macOS/Linux)
 ```bash
 curl -fsSL https://femtoclaw.org/install.sh | sh
 ```
 
-### 2. From Source
-
+### 2. Run Interactively
 ```bash
-cargo build --release
-./target/release/femtoclaw run
+femtoclaw run
 ```
 
-Type an instruction and press Enter. Use `Ctrl+C` to exit.
+### 3. Integration (Rust)
+```rust
+use femtoclaw::{Agent, Config};
 
-## Brains
-
-FemtoClaw ships with two brains:
-- `echo` (default): returns a safe, deterministic JSON response (great for tests / offline)
-- `openai`: OpenAI-compatible Chat Completions endpoint (optional)
-
-Configure via environment:
-```bash
-export FEMTO_BRAIN=echo
-# or
-export FEMTO_BRAIN=openai
-export FEMTO_OPENAI_BASE_URL="https://api.openai.com/v1"
-export FEMTO_OPENAI_API_KEY="..."
-export FEMTO_OPENAI_MODEL="gpt-4.1-mini"
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let agent = Agent::new(Config::default())?;
+    let response = agent.run("Perform a multi-step audit of the filesystem.").await?;
+    println!("Final Response: {}", response);
+    Ok(())
+}
 ```
 
-## Tools (Claws)
+## 🧠 Brain Backends
+FemtoClaw is model-agnostic. Configure your brain via environment variables:
+- `echo` (default): Safe, deterministic JSON responses for testing.
+- `openai`: OpenAI-compatible API (GPT-4o, etc.).
+- `anthropic`, `gemini`, `ollama`, `grok`, and more.
 
-- `shell` — allowlisted process execution (argv only, no shell interpolation)
-- `web_get` — bounded HTTP GET with size + timeout limits
+## 🏗 Industrial Security Posture
+- **No Markdown Execution:** Strictly enforces JSON-serialized tool calls to prevent parsing ambiguities.
+- **Argv-only Shell:** Process execution is limited to explicitly allowlisted binaries with no shell interpolation.
+- **Audit Trails:** Every decision, authorization, and execution is recorded in a tamper-evident audit log.
 
-Tools are deny-by-default: you must enable them in code (see `src/app.rs`).
+## 📦 Project Structure
+- `femtoclaw-protocol`: Strict JSON schema validation for agent messages.
+- `femtoclaw-storage`: High-performance persistence and WAL.
+- `femtoclaw-remote`: Distributed cluster support and API server.
+- `femtoclaw-policy`: Deterministic authorization engine.
 
-## Security posture
-
-- Structured tool calls only (JSON schema-like validation)
-- Unknown tools rejected
-- Shell tool uses allowlist and argv execution (no `sh -c`)
-- Network tool is bounded (timeout + max bytes)
-
-## Build profiles
-
-Industrial runtime (default):
-```bash
-cargo build --release
-```
-
-Full (adds tracing logs):
-```bash
-cargo build --release --features full
-```
-
-## License
-
+## 📄 License
 Apache 2.0 — see [LICENSE](LICENSE).
