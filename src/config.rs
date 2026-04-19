@@ -5,6 +5,7 @@ pub struct Config {
     pub brain: BrainConfig,
     pub max_memory: usize,
     pub max_iterations: usize,
+    pub allowed_capabilities: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -24,6 +25,20 @@ impl Default for Config {
             },
             max_memory: 1000,
             max_iterations: 10,
+            allowed_capabilities: parse_allowed_capabilities(),
         }
     }
+}
+
+fn parse_allowed_capabilities() -> Vec<String> {
+    std::env::var("FEMTO_ALLOWED_CAPABILITIES")
+        .ok()
+        .map(|raw| {
+            raw.split(',')
+                .map(str::trim)
+                .filter(|cap| !cap.is_empty())
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
 }

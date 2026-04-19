@@ -14,16 +14,16 @@ use crate::protocol::{ProtocolOutput, Validator};
 use crate::tools::{Tool, ToolRegistry};
 use crate::types::Message;
 
+use async_trait::async_trait;
 use femtoclaw_audit::{Event, Telemetry};
 use femtoclaw_policy::{Capability, CapabilityGate, Policy, PolicyEngine, Rule};
-use async_trait::async_trait;
 use serde_json::Value;
 
 // Import claws from femtoclaw-claws
-use femtoclaw_claws::core::Claw;
 use femtoclaw_claws::claws::fs::FsClaw;
 use femtoclaw_claws::claws::net::NetClaw;
 use femtoclaw_claws::claws::process::ProcessClaw;
+use femtoclaw_claws::core::Claw;
 
 /// Adapter that converts a Claw (from femtoclaw-claws) into a Tool.
 struct ClawTool<C> {
@@ -78,17 +78,18 @@ impl Agent {
         gate.register_capability(Capability::new("web.get", "Fetch URLs"));
         gate.register_capability(Capability::new("fs", "Filesystem read operations"));
         gate.register_capability(Capability::new("net", "Network operations"));
-        gate.register_capability(Capability::new("process", "Process execution and inspection"));
+        gate.register_capability(Capability::new(
+            "process",
+            "Process execution and inspection",
+        ));
+
+        let mut policy = Policy::new("default", "1.0");
+        for capability in &config.allowed_capabilities {
+            policy = policy.with_rule(Rule::allow(capability.clone()));
+        }
 
         let mut engine = PolicyEngine::new();
-        engine.add_policy(
-            Policy::new("default", "1.0")
-                .with_rule(Rule::allow("shell"))
-                .with_rule(Rule::allow("web.get"))
-                .with_rule(Rule::allow("fs"))
-                .with_rule(Rule::allow("net"))
-                .with_rule(Rule::allow("process")),
-        );
+        engine.add_policy(policy);
 
         let gate = gate.with_engine(engine);
         let telemetry = Telemetry::new();
@@ -188,7 +189,11 @@ impl Agent {
 
     /// Directly execute a tool by name with arguments, bypassing the brain.
     /// Authorization and audit are still enforced.
-    pub async fn execute_tool(&self, tool: &str, args: serde_json::Value) -> anyhow::Result<String> {
+    pub async fn execute_tool(
+        &self,
+        tool: &str,
+        args: serde_json::Value,
+    ) -> anyhow::Result<String> {
         let decision = self.gate.authorize(tool, &args);
         if !decision.is_allowed() {
             return Err(anyhow::anyhow!("Capability denied: {}", decision));
@@ -216,9 +221,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_execute_tool_shell_allowed() {
+    async fn test_execute_tool_shell_denied_by_default() {
         let agent = Agent::new(Config::default()).expect("agent creation failed");
-        let result = agent.execute_tool("shell", json!({"bin": "echo", "argv": ["hello"]})).await;
+        let result = agent
+            .execute_tool("shell", json!({"bin": "echo", "argv": ["hello"]}))
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_execute_tool_shell_allowed_when_configured() {
+        let mut config = Config::default();
+        config.allowed_capabilities = vec!["shell".to_string()];
+
+        let agent = Agent::new(config).expect("agent creation failed");
+        let result = agent
+            .execute_tool("shell", json!({"bin": "echo", "argv": ["hello"]}))
+            .await;
         assert!(result.is_ok());
         let output = result.unwrap();
         assert!(output.contains("hello"));

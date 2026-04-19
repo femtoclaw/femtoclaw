@@ -1,6 +1,12 @@
 use femtoclaw::{Agent, Config};
 use serde_json::json;
 
+fn config_with_capabilities(capabilities: &[&str]) -> Config {
+    let mut config = Config::default();
+    config.allowed_capabilities = capabilities.iter().map(|cap| cap.to_string()).collect();
+    config
+}
+
 #[tokio::test]
 async fn test_agent_echo_brain() {
     let agent = Agent::new(Config::default()).expect("agent created");
@@ -29,8 +35,11 @@ async fn test_agent_reset_clears_memory() {
 
 #[tokio::test]
 async fn test_execute_tool_shell_allowed() {
-    let agent = Agent::new(Config::default()).expect("agent failed");
-    let result = agent.execute_tool("shell", json!({"bin":"echo","argv":["test123"]})).await.unwrap();
+    let agent = Agent::new(config_with_capabilities(&["shell"])).expect("agent failed");
+    let result = agent
+        .execute_tool("shell", json!({"bin":"echo","argv":["test123"]}))
+        .await
+        .unwrap();
     assert!(result.contains("test123"));
 }
 
@@ -43,21 +52,29 @@ async fn test_execute_tool_unknown_denied() {
 
 #[tokio::test]
 async fn test_execute_tool_fs() {
-    let agent = Agent::new(Config::default()).unwrap();
-    let result = agent.execute_tool("fs", json!({"path": "/nonexistent/path/to/file"})).await;
+    let agent = Agent::new(config_with_capabilities(&["fs"])).unwrap();
+    let result = agent
+        .execute_tool("fs", json!({"path": "/nonexistent/path/to/file"}))
+        .await;
     assert!(result.is_err());
 }
 
 #[tokio::test]
 async fn test_execute_tool_process() {
-    let agent = Agent::new(Config::default()).unwrap();
-    let result = agent.execute_tool("process", json!({"program":"echo","args":["hi"]})).await.unwrap();
+    let agent = Agent::new(config_with_capabilities(&["process"])).unwrap();
+    let result = agent
+        .execute_tool("process", json!({"program":"echo","args":["hi"]}))
+        .await
+        .unwrap();
     assert!(result.contains("hi"));
 }
 
 #[tokio::test]
 async fn test_execute_tool_net() {
-    let agent = Agent::new(Config::default()).unwrap();
-    let result = agent.execute_tool("net", json!({"url": "http://example.com"})).await.unwrap();
+    let agent = Agent::new(config_with_capabilities(&["net"])).unwrap();
+    let result = agent
+        .execute_tool("net", json!({"url": "http://example.com"}))
+        .await
+        .unwrap();
     assert!(result.contains("http://example.com"));
 }

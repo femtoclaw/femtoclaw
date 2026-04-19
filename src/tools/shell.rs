@@ -1,4 +1,4 @@
-﻿//! Allowlisted process execution (argv only).
+//! Allowlisted process execution (argv only).
 //!
 //! Args (preferred):
 //! { "bin": "ls", "argv": ["-la"] }
@@ -60,7 +60,13 @@ impl Default for ShellTool {
 
 #[derive(Debug, Deserialize)]
 struct ShellArgs {
-    #[serde(default, alias = "command", alias = "cmd", alias = "program", alias = "executable")]
+    #[serde(
+        default,
+        alias = "command",
+        alias = "cmd",
+        alias = "program",
+        alias = "executable"
+    )]
     bin: Option<String>,
     #[serde(default, alias = "args", alias = "arguments", alias = "params")]
     argv: Vec<String>,
@@ -81,11 +87,7 @@ impl Tool for ShellTool {
         if args.get("bin").is_none() {
             if let Some(inner) = args.get("args").cloned().filter(|v| v.is_object()) {
                 args = inner;
-            } else if let Some(inner) = args
-                .get("parameters")
-                .cloned()
-                .filter(|v| v.is_object())
-            {
+            } else if let Some(inner) = args.get("parameters").cloned().filter(|v| v.is_object()) {
                 args = inner;
             }
         }
@@ -137,7 +139,10 @@ impl Tool for ShellTool {
     }
 }
 
-fn normalize_command(raw_bin: String, mut argv: Vec<String>) -> anyhow::Result<(String, Vec<String>)> {
+fn normalize_command(
+    raw_bin: String,
+    mut argv: Vec<String>,
+) -> anyhow::Result<(String, Vec<String>)> {
     if !raw_bin.chars().any(char::is_whitespace) {
         return Ok((raw_bin, argv));
     }
@@ -202,7 +207,9 @@ fn split_command_line(input: &str) -> anyhow::Result<Vec<String>> {
     }
 
     if quote.is_some() {
-        return Err(anyhow::anyhow!("shell args invalid: unterminated quote in command"));
+        return Err(anyhow::anyhow!(
+            "shell args invalid: unterminated quote in command"
+        ));
     }
 
     if !cur.is_empty() {
@@ -211,4 +218,3 @@ fn split_command_line(input: &str) -> anyhow::Result<Vec<String>> {
 
     Ok(out)
 }
-

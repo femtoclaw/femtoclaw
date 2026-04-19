@@ -1,5 +1,5 @@
+use femtoclaw::brain::{mock::MockBrain, BrainKind};
 use femtoclaw::{Agent, Config};
-use femtoclaw::brain::{BrainKind, mock::MockBrain};
 
 #[tokio::test]
 async fn test_autonomous_loop_completion() {
@@ -8,15 +8,15 @@ async fn test_autonomous_loop_completion() {
         r#"{"message":{"content":"Task complete"}}"#.to_string(),
     ];
     let mock_brain = MockBrain::new(responses);
-    
+
     let agent = Agent::new(Config::default())
         .expect("agent created")
         .with_brain(BrainKind::Mock(mock_brain));
-        
+
     let response = agent.run("do multi-step").await.expect("run succeeded");
-    
+
     assert_eq!(response, "Task complete");
-    
+
     let history = agent.history().await;
     // Expected history:
     // 1. User: do multi-step
@@ -37,16 +37,19 @@ async fn test_autonomous_loop_max_iterations() {
         r#"{"tool_call":{"tool":"shell","args":{"bin":"echo","argv":["looping"]}}}"#.to_string(); 20
     ];
     let mock_brain = MockBrain::new(responses);
-    
+
     let mut config = Config::default();
     config.max_iterations = 3;
-    
+
     let agent = Agent::new(config)
         .expect("agent created")
         .with_brain(BrainKind::Mock(mock_brain));
-        
+
     let result = agent.run("infinite loop").await;
-    
+
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Maximum iterations reached"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Maximum iterations reached"));
 }

@@ -40,17 +40,17 @@ impl Memory for WalMemory {
         // In a real reference implementation, we might want a separate async channel for WAL.
         // For now, we block or use a simplified approach as this is a Reference implementation.
         let payload = serde_json::to_value(&msg).unwrap();
-        
+
         // We can't easily await here because the trait is synchronous.
-        // This is a common mismatch. 
+        // This is a common mismatch.
         // Option 1: Change Memory trait to be async.
         // Option 2: Use block_in_place or spawn a task.
-        
+
         self.inner.push(msg);
-        
-        // Since the WAL is in a separate crate and designed for File IO, 
+
+        // Since the WAL is in a separate crate and designed for File IO,
         // we'll assume the caller of WalMemory knows it's persistent.
-        
+
         if let Ok(mut wal) = self.wal.try_write() {
             let _ = wal.append("push", payload);
         }

@@ -1,4 +1,4 @@
-﻿//! OpenRouter.ai brain.
+//! OpenRouter.ai brain.
 //!
 //! OpenRouter provides unified API to many LLM providers.
 //! See https://openrouter.ai
@@ -186,9 +186,7 @@ fn is_response_format_unsupported(status: reqwest::StatusCode, body: &str) -> bo
     }
 
     let b = body.to_lowercase();
-    b.contains("response_format")
-        && b.contains("json_object")
-        && b.contains("not supported")
+    b.contains("response_format") && b.contains("json_object") && b.contains("not supported")
 }
 
 fn truncate(s: &str, max: usize) -> String {
